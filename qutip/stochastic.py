@@ -1011,6 +1011,7 @@ def _smesolve_single_trajectory(n, sso):
     states_list = []
     measurements = np.zeros((len(times), len(sso.s_m_ops), d2_len),
                             dtype=complex)
+    lastmeas = np.zeros((len(sso.s_m_ops), d2_len),dtype=complex)
 
     for t_idx, t in enumerate(times):
 
@@ -1037,7 +1038,7 @@ def _smesolve_single_trajectory(n, sso):
                         dW[a_idx, t_idx, j, :] = np.zeros(d2_len)
 
             rho_t = sso.rhs(L_data, rho_t, t + dt * j,
-                            A_ops, dt, dW[:, t_idx, j, :], d1, d2, sso.args)
+                            A_ops, dt, dW[:, t_idx, j, :], d1, d2, lastmeas, sso.args)
 
         if sso.store_measurement:
             for m_idx, m in enumerate(sso.s_m_ops):
@@ -1047,6 +1048,8 @@ def _smesolve_single_trajectory(n, sso):
                     else:
                         m_expt = 0
                     measurements[t_idx, m_idx, dW_idx] = m_expt + dW_factor * \
+                        dW[m_idx, t_idx, :, dW_idx].sum() / (dt * N_substeps)
+                    lastmeas[m_idx, dW_idx] = m_expt + dW_factor * \
                         dW[m_idx, t_idx, :, dW_idx].sum() / (dt * N_substeps)
 
     if d2_len == 1:
@@ -1677,7 +1680,7 @@ def sop_G(A, rho_vec):
         return -rho_vec
 
 
-def d1_rho_homodyne(t, rho_vec, A, args):
+def d1_rho_homodyne(t, rho_vec, A, lastmeas, args):
     """
     D1[a] rho = lindblad_dissipator(a) * rho
 
@@ -1782,7 +1785,7 @@ def _rhs_psi_euler_maruyama(H, psi_t, t, A_ops, dt, dW, d1, d2, args):
     return psi_t + dpsi_t
 
 
-def _rhs_rho_euler_maruyama(L, rho_t, t, A_ops, dt, dW, d1, d2, args):
+def _rhs_rho_euler_maruyama(L, rho_t, t, A_ops, dt, dW, d1, d2, lastmeas, args):
     """
     Euler-Maruyama rhs function for density matrix solver.
     """
@@ -1792,7 +1795,7 @@ def _rhs_rho_euler_maruyama(L, rho_t, t, A_ops, dt, dW, d1, d2, args):
 
     for a_idx, A in enumerate(A_ops):
         d2_vec = d2(t, rho_t, A, args)
-        drho_t += d1(t, rho_t, A, args) * dt
+        drho_t += d1(t, rho_t, A, lastmeas, args) * dt
         drho_t += np.sum([d2_vec[n] * dW[a_idx, n]
                           for n in range(dW_len) if dW[a_idx, n] != 0], axis=0)
 
