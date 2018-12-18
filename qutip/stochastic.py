@@ -596,7 +596,7 @@ def smesolve(H, rho0, times, c_ops=[], sc_ops=[], e_ops=[],
         res.expect = {e: res.expect[n]
                       for n, e in enumerate(e_ops_dict.keys())}
 
-    return res
+    return res, sso
 
 
 def ssepdpsolve(H, psi0, times, c_ops, e_ops, **kwargs):
@@ -1866,7 +1866,7 @@ def _rhs_psi_platen(H, psi_t, t, A_ops, dt, dW, d1, d2, args):
 # -----------------------------------------------------------------------------
 # Milstein rhs functions for the stochastic master equation
 #
-def _rhs_rho_milstein_homodyne_single(L, rho_t, t, A_ops, dt, dW, d1, d2,
+def _rhs_rho_milstein_homodyne_single(L, rho_t, t, A_ops, dt, dW, d1, d2, lastmeas,
                                       args):
     """
     .. note::
@@ -1884,7 +1884,7 @@ def _rhs_rho_milstein_homodyne_single(L, rho_t, t, A_ops, dt, dW, d1, d2,
     e2 = cy_expect_rho_vec(M, d2_vec, 0)
 
     drho_t = _rhs_rho_deterministic(L, rho_t, t, dt, args)
-    drho_t += spmv(A[7], rho_t) * dt
+    drho_t += d1(t, rho_t, A, lastmeas, args) * dt
     drho_t += (d2_vec - e1 * rho_t) * dW[0, 0]
     drho_t += 0.5 * (d2_vec2 - 2 * e1 * d2_vec + (-e2 + 2 * e1 * e1) *
                      rho_t) * (dW[0, 0] * dW[0, 0] - dt)
